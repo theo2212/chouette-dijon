@@ -34,6 +34,7 @@
 
   /* ---------- Carte ---------- */
   #map{position:fixed;inset:0;background:var(--pierre-2)}
+  .leaflet-tile-pane{filter:saturate(.45) sepia(.15) brightness(1.04) contrast(.92)}
   .leaflet-control-attribution{font:11px var(--sans);background:rgba(247,246,242,.8)!important}
   .leaflet-control-attribution a{color:var(--gris)}
 
@@ -286,8 +287,8 @@ const esc=s=>String(s);
 
 // ---------- Carte ----------
 const map=L.map("map",{zoomControl:false,attributionControl:true}).setView([47.3215,5.0400],16);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{
-  maxZoom:20,subdomains:"abcd",attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>'
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
+  maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
 map.attributionControl.setPrefix(false);
 const layer=L.layerGroup().addTo(map);

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f2a1c">
+<title>Chouette · Dijon</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root{
+    --ink:#1f2a1c; --paper:#f6f1e6; --gold:#c9a227; --wine:#7a1f2b; --muted:#6b6b5e; --line:#e2d9c4;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{position:fixed;top:0;left:0;right:0;z-index:1000;background:var(--ink);color:var(--paper);
+    padding:calc(env(safe-area-inset-top) + 8px) 12px 8px;display:flex;align-items:center;gap:10px}
+  header h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.3px;flex:1}
+  header h1 span{color:var(--gold)}
+  .modes{display:flex;background:#33402f;border-radius:999px;padding:3px}
+  .modes button{border:0;background:none;color:var(--paper);font-size:13px;padding:6px 10px;border-radius:999px;cursor:pointer}
+  .modes button.on{background:var(--gold);color:var(--ink);font-weight:700}
+  #map{position:fixed;top:calc(env(safe-area-inset-top) + 50px);left:0;right:0;height:45vh}
+  #panel{position:fixed;left:0;right:0;bottom:0;top:calc(env(safe-area-inset-top) + 50px + 45vh);
+    overflow-y:auto;background:var(--paper);border-top:3px solid var(--gold);padding-bottom:env(safe-area-inset-bottom)}
+  .bar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--paper);z-index:2}
+  .bar .stats{flex:1;font-size:13px;color:var(--muted)}
+  .bar .stats b{color:var(--ink)}
+  .btn{border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:8px;padding:7px 10px;font-size:13px;cursor:pointer}
+  .btn.primary{background:var(--ink);color:var(--paper)}
+  .progress{height:4px;background:var(--line)}
+  .progress div{height:100%;background:var(--gold);width:0;transition:width .3s}
+  .tabs{display:flex;border-bottom:1px solid var(--line)}
+  .tabs button{flex:1;border:0;background:none;padding:9px;font-size:13px;color:var(--muted);cursor:pointer}
+  .tabs button.on{color:var(--ink);font-weight:700;box-shadow:inset 0 -2px 0 var(--ink)}
+  ul{list-style:none;margin:0;padding:0}
+  li.step{display:flex;gap:10px;padding:11px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+  li.step.next{background:#fbf3d9}
+  li.step.done{opacity:.55}
+  .num{flex:none;width:30px;height:30px;border-radius:50%;background:var(--gold);color:var(--ink);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+  li.step.done .num{background:#9aa58f}
+  .num.place{background:var(--wine);color:#fff;font-size:15px}
+  .body{flex:1;min-width:0}
+  .body h3{margin:0 0 2px;font-size:15px}
+  .body p{margin:2px 0;font-size:13px;line-height:1.35}
+  .meta{font-size:12px;color:var(--muted)}
+  .warn{font-size:12px;color:var(--wine);font-weight:600}
+  .check{flex:none;align-self:center;width:26px;height:26px;border:2px solid var(--ink);border-radius:6px;
+    background:none;font-size:15px;cursor:pointer}
+  li.step.done .check{background:var(--ink);color:var(--paper)}
+  #toast{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 14px);z-index:2000;
+    background:var(--ink);color:var(--paper);border-left:6px solid var(--gold);border-radius:10px;padding:12px 14px;
+    font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.3);display:none}
+  #toast b{color:var(--gold)}
+  .note{font-size:12px;color:var(--muted);padding:12px;line-height:1.4}
+  .pin{width:26px;height:26px;border-radius:50%;background:var(--gold);border:2px solid var(--ink);
+    display:flex;align-items:center;justify-content:center;font:800 12px sans-serif;color:var(--ink)}
+  .pin.done{background:#9aa58f}
+  .pin.place{background:var(--wine);color:#fff;border-color:#fff;font-size:13px}
+  .me{width:16px;height:16px;border-radius:50%;background:#1e6fff;border:3px solid #fff;box-shadow:0 0 0 2px #1e6fff55}
+</style>
+</head>
+<body>
+<header>
+  <h1>🦉 Parcours de la <span>Chouette</span></h1>
+  <div class="modes">
+    <button id="m-full" class="on">Complet</button>
+    <button id="m-lana">Pied de Lana</button>
+  </div>
+</header>
+<div id="map"></div>
+<div id="panel">
+  <div class="bar">
+    <div class="stats" id="stats"></div>
+    <button class="btn primary" id="locate">📍 Me suivre</button>
+  </div>
+  <div class="progress"><div id="prog"></div></div>
+  <div class="tabs">
+    <button id="t-steps" class="on">Étapes</button>
+    <button id="t-places">Nos adresses</button>
+  </div>
+  <ul id="list"></ul>
+  <p class="note" id="note"></p>
+</div>
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ---------- Données ----------
+// Coordonnées approximatives : les flèches en bronze au sol font foi.
+const STEPS = [
+  {n:1,  name:"Jardin Darcy", lat:47.32250, lng:5.03300,
+   txt:"Premier jardin public de Dijon, posé au XIXᵉ sur un ancien réservoir d'eau. Cherchez l'ours blanc de Pompon (copie) à l'entrée."},
+  {n:2,  name:"Hôtel de la Cloche", lat:47.32228, lng:5.03440,
+   txt:"Grand hôtel du Second Empire, bâti quand le train Paris–Méditerranée a mis Dijon sur la carte. Il a reçu le gratin de l'époque."},
+  {n:3,  name:"Porte Guillaume", lat:47.32222, lng:5.03555,
+   txt:"Arc de triomphe de la fin du XVIIIᵉ, à l'emplacement d'une ancienne porte de la ville. On passe dessous pour entrer dans le centre."},
+  {n:4,  name:"Poste · place Grangier", lat:47.32305, lng:5.03850,
+   txt:"La poste des années 1900 et, juste à côté, l'immeuble Art nouveau aux toits en pagode : levez les yeux."},
+  {n:5,  name:"Les Halles", lat:47.32370, lng:5.03990,
+   txt:"Halle de fer et de verre sortie des ateliers Eiffel. Marché mar., jeu., ven., sam. matin : fromages, jambon persillé, moutarde."},
+  {n:6,  name:"Place François-Rude", lat:47.32235, lng:5.04070,
+   txt:"La petite place animée avec le vigneron nu qui foule le raisin sur la fontaine. Point de rendez-vous des Dijonnais."},
+  {n:7,  name:"Rue des Forges", lat:47.32215, lng:5.04190,
+   txt:"La grande rue marchande du Moyen Âge : hôtel Chambellan (cour gothique avec escalier en colimaçon), maison Milsand et ses façades sculptées."},
+  {n:8,  name:"Notre-Dame", lat:47.32285, lng:5.04205,
+   txt:"Gothique bourguignon du XIIIᵉ : la façade aux 51 gargouilles et, en haut, la famille Jacquemart qui sonne les heures."},
+  {n:9,  name:"La Chouette", lat:47.32258, lng:5.04250,
+   txt:"Sur un contrefort, rue de la Chouette. On la caresse de la main gauche, côté cœur, en faisant un vœu. Elle est un peu usée : normal."},
+  {n:10, name:"Maison Millière", lat:47.32248, lng:5.04300,
+   txt:"Maison à pans de bois de 1483, boutique en bas. Regardez le toit : un chat et une chouette y montent la garde."},
+  {n:11, name:"Hôtel de Vogüé", lat:47.32235, lng:5.04355,
+   txt:"Hôtel particulier du XVIIᵉ, toit de tuiles vernissées. La cour est souvent ouverte : jetez un œil sous le porche."},
+  {n:12, name:"Place du Théâtre", lat:47.32150, lng:5.04480,
+   txt:"Le Grand Théâtre à colonnes, le musée Rude et, au bout, la façade Renaissance de l'église Saint-Michel."},
+  {n:13, name:"Place de la Sainte-Chapelle", lat:47.32170, lng:5.04380,
+   txt:"Ici se dressait la Sainte-Chapelle des ducs, rasée au XIXᵉ. Il en reste le nom et un beau dégagement sur le palais."},
+  {n:14, name:"Square des Ducs", lat:47.32195, lng:5.04290,
+   txt:"Petit jardin caché derrière le palais : la vue sur les tours et les toits est l'une des plus jolies de la ville."},
+  {n:15, name:"Palais des Ducs et des États", lat:47.32140, lng:5.04170,
+   txt:"Siège des ducs de Bourgogne puis des États. Aujourd'hui mairie et musée des Beaux-Arts (gratuit, fermé le mardi)."},
+  {n:16, name:"Tour Philippe le Bon", lat:47.32160, lng:5.04185, stairs:true,
+   txt:"46 m et 316 marches, vue sur toute la ville. Montée sur réservation à l'office de tourisme."},
+  {n:17, name:"Place de la Libération", lat:47.32075, lng:5.04125,
+   txt:"L'ancienne place Royale en hémicycle, dessinée par Hardouin-Mansart. Les fontaines au sol s'allument le soir."},
+  {n:18, name:"Palais de Justice", lat:47.31955, lng:5.04200,
+   txt:"Ancien Parlement de Bourgogne, façade Renaissance et portail en bois sculpté."},
+  {n:19, name:"Hôtels particuliers", lat:47.31890, lng:5.04060,
+   txt:"Le quartier des parlementaires : hôtel Legouz de Gerland et ses voisins, cours pavées et portails sculptés."},
+  {n:20, name:"Saint-Jean · place Bossuet", lat:47.32005, lng:5.03800,
+   txt:"Église gothique devenue théâtre. La boutique historique Mulot & Petitjean (pain d'épices) est sur la place."},
+  {n:21, name:"Saint-Philibert", lat:47.32110, lng:5.03520,
+   txt:"La seule église romane de Dijon, désacralisée. Flèche de pierre très reconnaissable."},
+  {n:22, name:"Cathédrale Saint-Bénigne", lat:47.32170, lng:5.03490,
+   txt:"Toits de tuiles vernissées et crypte du XIᵉ (accès libre). Fin du parcours… et l'Airbnb est à deux pas."}
+];
+
+// Mode « pied de Lana » : cœur historique, pas d'escalier, ≈ 1 km
+const LANA = [6,7,8,9,10,11,14,15,17];
+const VERRERIE = {n:"★", name:"Rue Verrerie (bonus)", lat:47.32345, lng:5.04370,
+  txt:"Petit crochet de 100 m depuis la Chouette : la rue des antiquaires, maisons à colombages. Plus jolie que bien des étapes officielles."};
+
+const PLACES = [
+  {i:"🏠", name:"Airbnb (Antoine et Lucie)", adr:"6 rue Docteur Maret", lat:47.32185, lng:5.03455, info:"Arrivée 16h, départ 10h"},
+  {i:"🍲", name:"Le Bouillon", adr:"9 place Notre-Dame", lat:47.32310, lng:5.04185, info:"Bœuf bourguignon 13,90 € · ≈ 22–25 € les 3 plats"},
+  {i:"🍷", name:"Les Clos Vivants", adr:"1 rue Musette", lat:47.32325, lng:5.04040, info:"Masterclass 35 € : 4 vins, 45 min"},
+  {i:"🍷", name:"La Cave Se Rebiffe", adr:"57 rue Vannerie", lat:47.32330, lng:5.04650, info:"Tous les soirs 18h30–minuit"},
+  {i:"🟡", name:"Maille", adr:"32 rue de la Liberté", lat:47.32215, lng:5.03960, info:"Moutarde à la pompe, entrée gratuite"},
+  {i:"🍪", name:"Mulot & Petitjean", adr:"13 place Bossuet", lat:47.32025, lng:5.03830, info:"Boutique historique, entrée gratuite"},
+  {i:"🥖", name:"Les Halles", adr:"rue Quentin", lat:47.32370, lng:5.03990, info:"Mar., jeu., ven., sam. 7h30–13h"},
+  {i:"🍽️", name:"Foodie's", adr:"12 rue François-Rude", lat:47.32260, lng:5.04060, info:"Plat 13,90 € · fermé le week-end"},
+  {i:"🏛️", name:"Musée archéologique", adr:"5 rue Docteur Maret", lat:47.32190, lng:5.03490, info:"Gratuit · fermé le mardi"},
+  {i:"🏛️", name:"Musée des Beaux-Arts", adr:"Palais des ducs", lat:47.32150, lng:5.04150, info:"Gratuit · fermé le mardi"},
+  {i:"🏛️", name:"Musée de la Vie bourguignonne", adr:"17 rue Sainte-Anne", lat:47.31780, lng:5.04080, info:"Gratuit · fermé le mardi · 3 étages"}
+];
+
+// ---------- État ----------
+const store = {
+  get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d }catch(e){ return d } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)) }catch(e){} }
+};
+let mode = store.get("chouette-mode","full");
+let done = new Set(store.get("chouette-done",[]));
+let tab = "steps";
+let me = null, meMarker = null, watchId = null, alerted = new Set();
+
+// ---------- Utilitaires ----------
+const R = 6371000, rad = d => d*Math.PI/180;
+function dist(a,b){
+  const dLat=rad(b.lat-a.lat), dLng=rad(b.lng-a.lng);
+  const h=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+const fmt = m => m<1000 ? Math.round(m/10)*10+" m" : (m/1000).toFixed(1).replace(".",",")+" km";
+const walkMin = m => Math.max(1,Math.round(m*1.25/75)); // 75 m/min, ×1,25 pour les rues
+function route(){
+  if(mode==="full") return STEPS;
+  const r = LANA.map(n=>STEPS[n-1]);
+  r.splice(r.findIndex(s=>s.n===9)+1,0,VERRERIE); // bonus après la Chouette
+  return r;
+}
+function routeLength(r){ let t=0; for(let i=1;i<r.length;i++) t+=dist(r[i-1],r[i]); return t*1.25; }
+
+// ---------- Carte ----------
+const map = L.map("map",{zoomControl:false}).setView([47.3215,5.0400],16);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+  maxZoom:19, attribution:"© OpenStreetMap"
+}).addTo(map);
+const layer = L.layerGroup().addTo(map);
+const icon = (html,cls) => L.divIcon({className:"",html:`<div class="pin ${cls||""}">${html}</div>`,iconSize:[26,26],iconAnchor:[13,13]});
+
+function drawMap(){
+  layer.clearLayers();
+  const r = route();
+  if(tab==="steps"){
+    L.polyline(r.map(s=>[s.lat,s.lng]),{color:"#7a1f2b",weight:4,opacity:.75,dashArray:"6 6"}).addTo(layer);
+    r.forEach(s=>{
+      L.marker([s.lat,s.lng],{icon:icon(s.n,done.has(s.n)?"done":"")})
+        .bindPopup(`<b>${s.n}. ${s.name}</b><br>${s.txt}`).addTo(layer);
+    });
+    map.fitBounds(L.latLngBounds(r.map(s=>[s.lat,s.lng])).pad(.12));
+  } else {
+    PLACES.forEach(p=>{
+      L.marker([p.lat,p.lng],{icon:icon(p.i,"place")})
+        .bindPopup(`<b>${p.name}</b><br>${p.adr}<br>${p.info}`).addTo(layer);
+    });
+    map.fitBounds(L.latLngBounds(PLACES.map(p=>[p.lat,p.lng])).pad(.1));
+  }
+}
+
+// ---------- Liste ----------
+function nextStep(){ return route().find(s=>typeof s.n==="number" && !done.has(s.n)); }
+function render(){
+  document.getElementById("m-full").classList.toggle("on",mode==="full");
+  document.getElementById("m-lana").classList.toggle("on",mode==="lana");
+  document.getElementById("t-steps").classList.toggle("on",tab==="steps");
+  document.getElementById("t-places").classList.toggle("on",tab==="places");
+  const r = route(), counted = r.filter(s=>typeof s.n==="number");
+  const nDone = counted.filter(s=>done.has(s.n)).length;
+  const len = routeLength(r);
+  document.getElementById("stats").innerHTML =
+    `<b>${nDone}/${counted.length}</b> étapes · ${fmt(len)} · ≈ ${walkMin(len/1.25)} min de marche`;
+  document.getElementById("prog").style.width = (100*nDone/counted.length)+"%";
+  const list = document.getElementById("list"); list.innerHTML="";
+  const nx = nextStep();
+  if(tab==="steps"){
+    r.forEach((s,i)=>{
+      const li=document.createElement("li");
+      const isNum = typeof s.n==="number";
+      li.className="step"+(isNum&&done.has(s.n)?" done":"")+(nx&&nx.n===s.n?" next":"");
+      const leg = i>0 ? `${fmt(dist(r[i-1],s)*1.25)} depuis l'étape précédente` : "Départ";
+      const away = me ? ` · à ${fmt(dist(me,s))} de vous` : "";
+      li.innerHTML = `<div class="num">${s.n}</div>
+        <div class="body"><h3>${s.name}</h3><p>${s.txt}</p>
+        <div class="meta">${leg}${away}</div>
+        ${s.stairs?'<div class="warn">⚠️ 316 marches : à zapper avec le pied de Lana</div>':""}</div>
+        ${isNum?`<button class="check" aria-label="Fait">${done.has(s.n)?"✓":""}</button>`:""}`;
+      li.querySelector(".body").onclick=()=>{ map.setView([s.lat,s.lng],18); };
+      const c=li.querySelector(".check");
+      if(c) c.onclick=e=>{ e.stopPropagation(); toggle(s.n); };
+      list.appendChild(li);
+    });
+    document.getElementById("note").textContent =
+      mode==="lana"
+      ? "Mode pied de Lana : le cœur historique sans escalier, avec la rue Verrerie en bonus. Bancs place François-Rude et place de la Libération. Le Bouillon est juste à côté de Notre-Dame pour la pause."
+      : "Parcours complet : 22 étapes, ≈ 3,5 km, 1h30 avec les arrêts. Positions approximatives : suivez les flèches en bronze au sol, elles font foi.";
+  } else {
+    const items = PLACES.map(p=>({...p,d:me?dist(me,p):null}));
+    if(me) items.sort((a,b)=>a.d-b.d);
+    items.forEach(p=>{
+      const li=document.createElement("li"); li.className="step";
+      li.innerHTML=`<div class="num place">${p.i}</div><div class="body"><h3>${p.name}</h3>
+        <p>${p.adr}</p><div class="meta">${p.info}${p.d!=null?" · à "+fmt(p.d):""}</div></div>`;
+      li.onclick=()=>map.setView([p.lat,p.lng],18);
+      list.appendChild(li);
+    });
+    document.getElementById("note").textContent="Les adresses du carnet. Avec « Me suivre », elles sont triées de la plus proche à la plus loin.";
+  }
+  drawMap();
+}
+function toggle(n){
+  done.has(n)?done.delete(n):done.add(n);
+  store.set("chouette-done",[...done]); render();
+}
+
+// ---------- Géolocalisation ----------
+function toast(html){
+  const t=document.getElementById("toast"); t.innerHTML=html; t.style.display="block";
+  clearTimeout(toast.t); toast.t=setTimeout(()=>t.style.display="none",7000);
+  t.onclick=()=>t.style.display="none";
+}
+function onPos(p){
+  me={lat:p.coords.latitude,lng:p.coords.longitude};
+  if(!meMarker) meMarker=L.marker([me.lat,me.lng],{icon:L.divIcon({className:"",html:'<div class="me"></div>',iconSize:[16,16],iconAnchor:[8,8]}),zIndexOffset:1000}).addTo(map);
+  else meMarker.setLatLng([me.lat,me.lng]);
+  route().forEach(s=>{
+    if(typeof s.n!=="number"||done.has(s.n)||alerted.has(s.n)) return;
+    if(dist(me,s)<35){
+      alerted.add(s.n);
+      if(navigator.vibrate) navigator.vibrate([150,80,150]);
+      toast(`🦉 <b>Étape ${s.n} : ${s.name}</b><br>${s.txt}<br><small>Touchez la case ✓ dans la liste une fois vue.</small>`);
+    }
+  });
+  render();
+}
+document.getElementById("locate").onclick=()=>{
+  if(!navigator.geolocation){ toast("Géolocalisation indisponible sur ce téléphone."); return; }
+  if(watchId!==null){
+    navigator.geolocation.clearWatch(watchId); watchId=null;
+    document.getElementById("locate").textContent="📍 Me suivre"; return;
+  }
+  watchId=navigator.geolocation.watchPosition(onPos,
+    e=>toast("Position refusée ou introuvable. Autorisez la localisation pour ce site dans les réglages."),
+    {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+  document.getElementById("locate").textContent="⏸ Arrêter";
+};
+
+// ---------- Contrôles ----------
+document.getElementById("m-full").onclick=()=>{mode="full";store.set("chouette-mode",mode);render();};
+document.getElementById("m-lana").onclick=()=>{mode="lana";store.set("chouette-mode",mode);render();};
+document.getElementById("t-steps").onclick=()=>{tab="steps";render();};
+document.getElementById("t-places").onclick=()=>{tab="places";render();};
+render();
+</script>
+</body>
+</html>

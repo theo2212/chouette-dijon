@@ -142,6 +142,34 @@
   #toast .actions .act{border-color:var(--pierre);color:var(--pierre);min-height:40px}
   #toast .actions .act.main{background:var(--ocre);border-color:var(--ocre);color:var(--encre)}
 
+  .act.icon{flex:0 0 auto;padding:0 14px}
+  .cam{flex:none;width:34px;height:34px;margin-top:1px;border-radius:50%;border:0;background:var(--pierre-2);color:var(--vert);cursor:pointer;display:grid;place-items:center}
+  .cam svg{width:18px;height:18px}
+  .thumbs{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .thumbs img{width:52px;height:52px;object-fit:cover;border-radius:8px;display:block;cursor:zoom-in}
+  .album{padding:4px 18px 0}
+  .album h3{font:700 18px/1.2 var(--serif);margin:16px 0 8px;display:flex;gap:8px;align-items:center}
+  .album h3 .mini{width:24px;height:24px;font-size:12px;padding-top:7px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;display:block;cursor:zoom-in}
+  .empty{padding:24px 18px 8px;text-align:center;color:var(--gris)}
+  .empty strong{display:block;font:700 19px var(--serif);color:var(--encre);margin-bottom:4px}
+  .album-bar{display:flex;justify-content:space-between;align-items:center;padding:6px 18px 0;color:var(--gris);font-size:14px}
+  .album-bar button{border:1.5px solid var(--vert);background:none;color:var(--vert);border-radius:10px;padding:7px 12px;font-weight:700;cursor:pointer}
+  #viewer{position:fixed;inset:0;z-index:1200;background:rgba(15,20,17,.96);display:none;flex-direction:column;color:var(--pierre)}
+  #viewer.show{display:flex}
+  #viewer .vtop{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 12px) 14px 10px}
+  #viewer .vtop b{flex:1;font:700 19px var(--serif)}
+  #viewer .vtop small{display:block;font:14px var(--sans);color:#b9bfb9}
+  #viewer .vimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:0 8px;position:relative}
+  #viewer img{max-width:100%;max-height:100%;border-radius:8px}
+  #viewer .nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:0;background:rgba(247,246,242,.15);color:var(--pierre);font-size:24px;cursor:pointer}
+  #viewer .prev{left:10px} #viewer .nextp{right:10px}
+  #viewer .vbar{display:flex;gap:8px;padding:12px 14px calc(env(safe-area-inset-bottom) + 14px)}
+  #viewer .vbar .act{border-color:var(--pierre);color:var(--pierre)}
+  #viewer .vbar .act.main{background:var(--ocre);border-color:var(--ocre);color:var(--encre)}
+  #viewer .vbar .act.danger{border-color:#e08a9b;color:#f2b8c3}
+  .xbtn{width:40px;height:40px;border-radius:50%;border:0;background:rgba(247,246,242,.15);color:var(--pierre);font-size:22px;cursor:pointer}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
   @media (min-width:900px){#sheet{left:16px;right:auto;width:420px;margin:0;bottom:16px;border-radius:18px;height:calc(100dvh - var(--top) - 16px)} .fab{right:16px}}
 </style>
@@ -175,6 +203,7 @@
     <div class="summary"><span id="count"></span><span id="len"></span></div>
     <div class="tabs" role="tablist">
       <button id="t-steps" role="tab" aria-selected="true">Les étapes</button>
+      <button id="t-album" role="tab" aria-selected="false">Nos photos</button>
       <button id="t-places" role="tab" aria-selected="false">Nos adresses</button>
     </div>
     <ul id="list"></ul>
@@ -183,6 +212,12 @@
 </section>
 
 <div id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="picker" accept="image/*" capture="environment" hidden>
+<div id="viewer" role="dialog" aria-modal="true" aria-label="Photo">
+  <div class="vtop"><div style="flex:1"><b id="v-title"></b><small id="v-date"></small></div><button class="xbtn" id="v-close" aria-label="Fermer">×</button></div>
+  <div class="vimg"><img id="v-img" alt=""><button class="nav prev" id="v-prev" aria-label="Photo précédente">‹</button><button class="nav nextp" id="v-next" aria-label="Photo suivante">›</button></div>
+  <div class="vbar"><button class="act danger" id="v-del">Supprimer</button><button class="act main" id="v-share">Enregistrer ou partager</button></div>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -255,6 +290,7 @@ const PLACES = [
 
 const ICON_GO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-8 18-2-8z"/></svg>';
 const ICON_OK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const ICON_CAM='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
 VERRERIE.n="V"; VERRERIE.label="+";
 
 // ---------- État ----------
@@ -299,13 +335,13 @@ function focusOn(p,zoom=18){
   if(window.innerWidth<900) map.panBy([0,sheetVisible()/2-30],{animate:true});
 }
 function fitAll(){
-  const pts=tab==="steps"?route():PLACES;
+  const pts=tab!=="places"?route():PLACES;
   const pad=window.innerWidth<900?{paddingTopLeft:[30,130],paddingBottomRight:[70,sheetVisible()+20],maxZoom:17.5}:{paddingTopLeft:[460,90],paddingBottomRight:[80,40],maxZoom:17.5};
   map.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])),pad);
 }
 function drawMap(){
   layer.clearLayers();
-  if(tab==="steps"){
+  if(tab!=="places"){
     const r=route(), nx=nextStep();
     L.polyline(r.map(s=>[s.lat,s.lng]),{color:"#173b2f",weight:4,opacity:.55,dashArray:"2 8",lineCap:"round"}).addTo(layer);
     r.forEach(s=>{
@@ -339,9 +375,11 @@ function renderNext(){
       <div><h2>${nx.name}</h2><p class="dist">${d}</p></div></div>
     <div class="actions">
       <a class="act" href="${gmaps(nx)}" target="_blank" rel="noopener">${ICON_GO}Y aller</a>
+      <button class="act" id="snap">${ICON_CAM}Photo</button>
       <button class="act main" id="seen">${ICON_OK}C'est vu</button>
     </div>`;
   document.getElementById("seen").onclick=()=>markDone(nx.n);
+  document.getElementById("snap").onclick=()=>takePhoto(nx.n);
   el.querySelector("h2").onclick=()=>{openItem(nx.n);};
 }
 
@@ -359,10 +397,13 @@ function renderList(){
       li.innerHTML=`<div class="num">${label(s)}</div>
         <button class="main" aria-expanded="${open===s.n}"><h3>${s.name}</h3>
           <div class="meta">${leg}${s.stairs?' <span class="warn">· 316 marches</span>':""}</div>
-          <p>${s.txt}</p></button>
+          <p>${s.txt}</p>${thumbs(s.n)}</button>
+        <button class="cam" aria-label="Prendre une photo de ${s.name}">${ICON_CAM}</button>
         <button class="tick" aria-label="${done.has(s.n)?"Marquer comme pas encore vue":"Marquer comme vue"}" aria-pressed="${done.has(s.n)}">${ICON_OK}</button>`;
       li.querySelector(".main").onclick=()=>{open=open===s.n?null:s.n; renderList(); if(open!==null) focusOn(s);};
       li.querySelector(".tick").onclick=()=>toggle(s.n);
+      li.querySelector(".cam").onclick=()=>takePhoto(s.n);
+      li.querySelectorAll(".thumbs img").forEach(img=>img.onclick=e=>{e.stopPropagation();openViewer(+img.dataset.id);});
       list.appendChild(li);
     });
     foot.innerHTML=(mode==="lana"
@@ -370,6 +411,8 @@ function renderList(){
       :"Les 22 étapes officielles, environ 1h30 avec les arrêts. Les positions sont approximatives : sur place, suivez les plaques triangulaires en laiton au sol.")
       +(done.size?` <button id="reset">Recommencer le parcours</button>`:"");
     const rs=document.getElementById("reset"); if(rs) rs.onclick=()=>{done.clear();alerted.clear();save();refresh(true);};
+  } else if(tab==="album"){
+    renderAlbum(list,foot);
   } else {
     const items=PLACES.map(p=>({...p,d:me?walk(dist(me,p)):null}));
     if(me) items.sort((a,b)=>a.d-b.d);
@@ -394,6 +437,7 @@ function renderSummary(){
   document.getElementById("m-lana").setAttribute("aria-pressed",mode==="lana");
   document.getElementById("t-steps").setAttribute("aria-selected",tab==="steps");
   document.getElementById("t-places").setAttribute("aria-selected",tab==="places");
+  document.getElementById("t-album").setAttribute("aria-selected",tab==="album");
 }
 
 function refresh(fit){renderSummary();renderNext();renderList();drawMap();if(fit) fitAll();}
@@ -455,7 +499,8 @@ function onPos(p){
       alerted.add(s.n);
       if(navigator.vibrate) navigator.vibrate([120,60,120]);
       showToast(`<h4>${label(s)}. ${s.name}</h4><p>${s.txt}</p>
-        <div class="actions"><button class="act" id="t-later">Plus tard</button><button class="act main" id="t-seen">${ICON_OK}C'est vu</button></div>`);
+        <div class="actions"><button class="act" id="t-later">Plus tard</button><button class="act" id="t-snap">${ICON_CAM}Photo</button><button class="act main" id="t-seen">${ICON_OK}C'est vu</button></div>`);
+      document.getElementById("t-snap").onclick=()=>takePhoto(s.n);
       document.getElementById("t-seen").onclick=()=>markDone(s.n);
       document.getElementById("t-later").onclick=hideToast;
     }
@@ -488,8 +533,124 @@ document.getElementById("m-full").onclick=()=>{mode="full";store.set("chouette-m
 document.getElementById("m-lana").onclick=()=>{mode="lana";store.set("chouette-mode",mode);open=null;setSnap(0);refresh();setTimeout(fitAll,340);};
 document.getElementById("t-steps").onclick=()=>{tab="steps";refresh(true);};
 document.getElementById("t-places").onclick=()=>{tab="places";refresh(true);};
+document.getElementById("t-album").onclick=()=>{tab="album";refresh();};
+
+// ---------- Photos (stockées sur le téléphone) ----------
+let PHOTOS=[];
+const allSteps=()=>[...STEPS.slice(0,9),VERRERIE,...STEPS.slice(9)];
+const stepOf=n=>allSteps().find(s=>s.n===n)||{name:"Étape",n};
+const photosOf=n=>PHOTOS.filter(p=>p.step===n);
+const dbp=new Promise((res,rej)=>{
+  if(!("indexedDB" in window)) return rej(new Error("no idb"));
+  const r=indexedDB.open("chouette",1);
+  r.onupgradeneeded=()=>r.result.createObjectStore("photos",{keyPath:"id",autoIncrement:true});
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+});
+async function idb(mode,fn){
+  const db=await dbp;
+  return new Promise((res,rej)=>{const tx=db.transaction("photos",mode);const req=fn(tx.objectStore("photos"));
+    tx.oncomplete=()=>res(req&&req.result);tx.onerror=()=>rej(tx.error);});
+}
+async function loadPhotos(){
+  PHOTOS.forEach(p=>URL.revokeObjectURL(p.url));
+  try{ PHOTOS=(await idb("readonly",st=>st.getAll())).map(p=>({...p,url:URL.createObjectURL(p.blob)})); }
+  catch(e){ PHOTOS=[]; }
+}
+function thumbs(n){
+  const ps=photosOf(n); if(!ps.length) return "";
+  return `<div class="thumbs">${ps.map(p=>`<img src="${p.url}" data-id="${p.id}" alt="Photo de ${stepOf(n).name}">`).join("")}</div>`;
+}
+function shrink(file){
+  return new Promise((res,rej)=>{
+    const img=new Image(), u=URL.createObjectURL(file);
+    img.onload=()=>{
+      const k=Math.min(1,1800/Math.max(img.naturalWidth,img.naturalHeight));
+      const c=document.createElement("canvas"); c.width=Math.round(img.naturalWidth*k); c.height=Math.round(img.naturalHeight*k);
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(u);
+      c.toBlob(b=>b?res(b):rej(new Error("toBlob")),"image/jpeg",.85);
+    };
+    img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error("image"));};
+    img.src=u;
+  });
+}
+const picker=document.getElementById("picker"); let photoFor=null;
+function takePhoto(n){photoFor=n;picker.value="";picker.click();}
+picker.onchange=async()=>{
+  const f=picker.files&&picker.files[0]; if(!f||photoFor===null) return;
+  const n=photoFor; photoFor=null;
+  try{
+    const blob=await shrink(f).catch(()=>f);
+    await idb("readwrite",st=>st.add({step:n,ts:Date.now(),blob}));
+    if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+    await loadPhotos();
+    if(!done.has(n)){done.add(n);save();}
+    hideToast(); refresh();
+    info(`Photo enregistrée pour « ${stepOf(n).name} ».`);
+  }catch(e){ info("La photo n'a pas pu être enregistrée sur ce téléphone."); }
+};
+function fileOf(p){
+  const s=stepOf(p.step), d=new Date(p.ts);
+  const name=`chouette-${s.n}-${s.name.normalize("NFD").replace(/[^\w]+/g,"-").toLowerCase()}-${d.getHours()}h${String(d.getMinutes()).padStart(2,"0")}.jpg`;
+  return new File([p.blob],name,{type:p.blob.type||"image/jpeg"});
+}
+async function shareFiles(files){
+  if(navigator.canShare&&navigator.canShare({files})){
+    try{await navigator.share({files,title:"Parcours de la Chouette"});}catch(e){}
+    return;
+  }
+  files.forEach(f=>{const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove();});
+}
+function renderAlbum(list,foot){
+  const order=route().concat(allSteps().filter(s=>!route().includes(s)));
+  const groups=order.filter(s=>photosOf(s.n).length);
+  if(!PHOTOS.length){
+    list.innerHTML=`<li class="empty"><strong>Pas encore de photo</strong>Touchez l'appareil photo sur une étape : la photo est rangée ici et l'étape est cochée.</li>`;
+  } else {
+    list.innerHTML=`<li class="album-bar"><span>${PHOTOS.length} photo${PHOTOS.length>1?"s":""} sur ${groups.length} étape${groups.length>1?"s":""}</span><button id="share-all">Tout enregistrer</button></li>`+
+      `<li class="album">`+groups.map(s=>`<h3><span class="plaque mini">${label(s)}</span>${s.name}</h3><div class="grid">${photosOf(s.n).map(p=>`<img src="${p.url}" data-id="${p.id}" alt="Photo de ${s.name}">`).join("")}</div>`).join("")+`</li>`;
+    document.getElementById("share-all").onclick=()=>shareFiles(PHOTOS.map(fileOf));
+    list.querySelectorAll(".grid img").forEach(img=>img.onclick=()=>openViewer(+img.dataset.id));
+  }
+  foot.textContent="Les photos restent sur ce téléphone, dans l'appli. Pensez à les enregistrer dans votre galerie à la fin de la balade.";
+}
+let vIndex=0, vList=[];
+function openViewer(id){
+  vList=allSteps().flatMap(s=>photosOf(s.n));
+  vIndex=Math.max(0,vList.findIndex(p=>p.id===id));
+  showViewer(); document.getElementById("viewer").classList.add("show");
+}
+function showViewer(){
+  const p=vList[vIndex]; if(!p){closeViewer();return;}
+  const s=stepOf(p.step);
+  document.getElementById("v-img").src=p.url;
+  document.getElementById("v-img").alt="Photo de "+s.name;
+  document.getElementById("v-title").textContent=`${label(s)}. ${s.name}`;
+  document.getElementById("v-date").textContent=new Date(p.ts).toLocaleString("fr-FR",{weekday:"long",hour:"2-digit",minute:"2-digit"});
+  document.getElementById("v-prev").style.visibility=vIndex>0?"visible":"hidden";
+  document.getElementById("v-next").style.visibility=vIndex<vList.length-1?"visible":"hidden";
+  const del=document.getElementById("v-del"); del.textContent="Supprimer"; del.dataset.armed="";
+}
+function closeViewer(){document.getElementById("viewer").classList.remove("show");}
+document.getElementById("v-close").onclick=closeViewer;
+document.getElementById("v-prev").onclick=()=>{vIndex--;showViewer();};
+document.getElementById("v-next").onclick=()=>{vIndex++;showViewer();};
+document.getElementById("v-share").onclick=()=>shareFiles([fileOf(vList[vIndex])]);
+document.getElementById("v-del").onclick=async e=>{
+  const b=e.currentTarget;
+  if(!b.dataset.armed){b.dataset.armed="1";b.textContent="Supprimer pour de bon";return;}
+  const id=vList[vIndex].id;
+  await idb("readwrite",st=>st.delete(id)); await loadPhotos();
+  vList=vList.filter(p=>p.id!==id); if(vIndex>=vList.length) vIndex=vList.length-1;
+  refresh(); if(vList.length) showViewer(); else closeViewer();
+};
+let tx0=null;
+document.getElementById("viewer").addEventListener("touchstart",e=>{tx0=e.touches[0].clientX;},{passive:true});
+document.getElementById("viewer").addEventListener("touchend",e=>{if(tx0===null)return;const dx=e.changedTouches[0].clientX-tx0;tx0=null;
+  if(dx<-50&&vIndex<vList.length-1){vIndex++;showViewer();} else if(dx>50&&vIndex>0){vIndex--;showViewer();}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeViewer();});
 
 refresh();
+loadPhotos().then(()=>refresh());
 requestAnimationFrame(()=>{setSnap(0);setTimeout(fitAll,340);});
 </script>
 </body>
